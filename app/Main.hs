@@ -58,5 +58,20 @@ advent2 = do
     putStrLn $ show $ sum $ fmap (pairDiff . extractMinMax) int2d
     putStrLn $ show $ sum $ fmap (head . evenDivisions) int2d
 
+nextOdd :: Int -> Int
+nextOdd n = if n `mod` 2 == 0 then n+1 else n
+
+advent3 :: IO ()
+advent3 = do
+    n <- fmap (read . head) getArgs
+    let side = (nextOdd . ceiling . sqrt . fromIntegral) n
+    let dMin = side `div` 2
+    let mins = [ side*side - dMin
+               , side*side - dMin*3
+               , side*side - dMin*5
+               , side*side - dMin*7]
+    let result = (+) dMin $ foldl min n $ fmap (abs . (n -)) mins
+    putStrLn $ show $ result
+
 main :: IO ()
-main = advent2
+main = advent3
