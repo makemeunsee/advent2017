@@ -2,9 +2,10 @@ module Main where
 
 import Lib
 import Data.Char (digitToInt)
-import Data.List (intersperse)
+import Data.List (intersperse, sort)
 import Data.List.Split (splitOn)
 import System.Environment (getArgs)
+import qualified Data.Set as Set
 
 concatArgsX :: String -> String -> String -> [String] -> String
 concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ intersperse delimiter args
@@ -72,6 +73,15 @@ advent3 = do
                , side*side - dMin*7]
     let result = (+) dMin $ foldl min n $ fmap (abs . (n -)) mins
     putStrLn $ show $ result
+    --res2: https://oeis.org/A141481 ...
+
+advent4 :: IO ()
+advent4 = do
+    inputFile <- fmap head getArgs
+    inputs <- readFile inputFile
+    let passphrases = fmap (splitOn " ") $ splitOn "\n" inputs
+    putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 passphrases
+    putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 $ fmap (fmap sort) passphrases
 
 main :: IO ()
-main = advent3
+main = advent4
