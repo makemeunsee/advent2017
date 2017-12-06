@@ -6,6 +6,16 @@ import Data.List (intersperse, sort)
 import Data.List.Split (splitOn)
 import System.Environment (getArgs)
 import qualified Data.Set as Set
+<<<<<<< Updated upstream
+=======
+import qualified Data.Sequence as Seq
+import Data.Sequence (Seq)
+import Data.Foldable (toList)
+import qualified Data.List.Zipper as Zp
+import Data.List.Zipper (Zipper(Zip))
+
+import Debug.Trace (trace)
+>>>>>>> Stashed changes
 
 concatArgsX :: String -> String -> String -> [String] -> String
 concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ intersperse delimiter args
@@ -83,5 +93,64 @@ advent4 = do
     putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 passphrases
     putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 $ fmap (fmap sort) passphrases
 
+<<<<<<< Updated upstream
 main :: IO ()
 main = advent4
+=======
+applyN n f = foldr (.) id (replicate n f)
+
+processAndCount :: (Zipper Int -> Zipper Int) -> Zipper Int -> Int
+processAndCount rule zipper = processAndCount' 0 zipper
+    where
+        processAndCount' n (Zip _ []) = n
+        processAndCount' n zipper = processAndCount' (n+1) $ rule zipper
+
+rule1 (Zip ls (r : rs)) =
+    if r < 0 then
+        applyN (-r) Zp.left $ Zip ls (r+1 : rs)
+    else
+        applyN r Zp.right $ Zip ls (r+1 : rs)
+
+rule2 (Zip ls (r : rs)) =
+    if r < 0 then
+        applyN (-r) Zp.left $ Zip ls (r+1 : rs)
+    else if r < 3 then
+        applyN r Zp.right $ Zip ls (r+1 : rs)
+    else
+        applyN r Zp.right $ Zip ls (r-1 : rs)
+
+advent5 :: IO ()
+advent5 = do
+    inputFile <- fmap head getArgs
+    input <- readFile inputFile
+    let tape = Zp.fromList $ fmap read $ splitOn "\n" input
+    putStrLn $ show $ processAndCount rule1 tape
+    putStrLn $ show $ processAndCount rule2 tape
+
+distributeOnce :: Seq Int -> Seq Int
+distributeOnce seq = distribute max (maxId + 1) $ Seq.update maxId 0 seq
+    where
+        l = Seq.length seq
+        (max, maxId) = Seq.foldlWithIndex (\curMax i cur -> if cur > fst curMax then (cur, i) else curMax) (Seq.index seq 0, 0) seq
+        distribute 0 atId seq = seq
+        distribute toDistribute atId seq = distribute (toDistribute-1) (atId+1) $ Seq.adjust (+1) (atId `mod` l) seq
+
+distributeAndLoop :: [Int] -> ([Int], Int)
+distributeAndLoop input = distributeAndLoop' 0 Set.empty $ Seq.fromList input
+    where
+        distributeAndLoop' n past present =
+            if Set.member present past then
+                (toList present, n)
+            else
+                distributeAndLoop' (n+1) (Set.insert present past) $ distributeOnce present
+
+advent6 :: IO ()
+advent6 = do
+    let input = [10, 3, 15, 10, 5, 15, 5, 15, 9, 2, 5, 8, 5, 2, 3, 6] -- [0,2,7,0]
+    let (loopStart, cycleCount) = distributeAndLoop input
+    putStrLn $ show cycleCount
+    putStrLn $ show $ snd $ distributeAndLoop loopStart
+
+main :: IO ()
+main = advent6
+>>>>>>> Stashed changes
