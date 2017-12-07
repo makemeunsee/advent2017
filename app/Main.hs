@@ -6,8 +6,6 @@ import Data.List (intersperse, sort)
 import Data.List.Split (splitOn)
 import System.Environment (getArgs)
 import qualified Data.Set as Set
-<<<<<<< Updated upstream
-=======
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq)
 import Data.Foldable (toList)
@@ -15,7 +13,6 @@ import qualified Data.List.Zipper as Zp
 import Data.List.Zipper (Zipper(Zip))
 
 import Debug.Trace (trace)
->>>>>>> Stashed changes
 
 concatArgsX :: String -> String -> String -> [String] -> String
 concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ intersperse delimiter args
@@ -93,10 +90,6 @@ advent4 = do
     putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 passphrases
     putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 $ fmap (fmap sort) passphrases
 
-<<<<<<< Updated upstream
-main :: IO ()
-main = advent4
-=======
 applyN n f = foldr (.) id (replicate n f)
 
 processAndCount :: (Zipper Int -> Zipper Int) -> Zipper Int -> Int
@@ -151,6 +144,11 @@ advent6 = do
     putStrLn $ show cycleCount
     putStrLn $ show $ snd $ distributeAndLoop loopStart
 
+advent7 :: IO ()
+advent7 = do
+    inputs <- fmap head getArgs >>= readFile
+    let nodes = splitOn "\n" inputs
+    putStrLn $ show nodes
+
 main :: IO ()
 main = advent6
->>>>>>> Stashed changes

@@ -31,10 +31,7 @@ executable advent2017-exe
                      , advent2017
                      , split
                      , containers
-<<<<<<< Updated upstream
-=======
                      , ListZipper
->>>>>>> Stashed changes
   default-language:    Haskell2010
 
 test-suite advent2017-test
