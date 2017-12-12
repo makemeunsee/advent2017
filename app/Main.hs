@@ -239,29 +239,44 @@ advent7 = do
 data Op = Inc | Dec
 applyOp Inc = (+)
 applyOp Dec = (-)
+opFromString "inc" = Inc
+opFromString "dec" = Dec
+testFromString "!=" = (/=)
+testFromString "==" = (==)
+testFromString "<=" = (<=)
+testFromString ">=" = (>=)
+testFromString "<" = (<)
+testFromString ">" = (>)
 
-readInstruction :: Map String Int -> String -> Op -> Int -> (Map String Int -> Bool) -> Map String Int
-readInstruction registers register op val condition =
-    if condition registers then
-        Map.insertWith (+) register (applyOp op 0 val) registers
-    else
-        registers
+parseInstruction :: String -> (String, Op, Int, (Map String Int -> Bool))
+parseInstruction line = (register, op, val, condition)
+    where
+        matches = Mbe.fromJust $ matchRegex instructionRegex line
+        register = matches !! 0
+        op = opFromString $ matches !! 1
+        val = read $ matches !! 2
+        conditionRegister = matches !! 3
+        conditionOp = testFromString $ matches !! 4
+        conditionVal = read $ matches !! 5
+        condition = \registers -> conditionOp (Mbe.fromMaybe 0 $ Map.lookup conditionRegister registers) conditionVal
+
+instructionRegex = mkRegex "^([a-z]+) (inc|dec) (-?[0-9]+) if ([a-z]+) (!=|==|<|>|<=|>=) (-?[0-9]+)$"
+
+readInstruction :: Map String Int -> String -> Map String Int
+readInstruction registers line = readInstruction' $ parseInstruction line
+    where
+        readInstruction' (register, op, val, condition) =
+            if condition registers then
+                Map.insertWith (+) register (applyOp op 0 val) registers
+            else
+                registers
 
 advent8 :: IO ()
 advent8 = do
     inputs <- fmap head getArgs >>= readFile
     let lines = splitOn "\n" inputs
-    let r1 = readInstruction Map.empty "a" Inc 3 (\_ -> True)
-    putStrLn $ show r1
-    let r2 = readInstruction r1 "a" Dec 5 (\_ -> True)
-    putStrLn $ show r2
-    let r3 = readInstruction r2 "a" Dec 5 (\_ -> False)
-    putStrLn $ show r3
-    let r4 = readInstruction r3 "b" Dec 5 (\_ -> True)
-    putStrLn $ show r4
-    let r5 = readInstruction r4 "c" Dec 5 (\_ -> True)
-    putStrLn $ show r5
-
+    let registers = foldl readInstruction Map.empty lines
+    putStrLn $ show $ maximum $ Map.elems registers
 
 main :: IO ()
 main = advent8
