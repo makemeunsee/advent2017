@@ -32,6 +32,8 @@ executable advent2017-exe
                      , split
                      , containers
                      , ListZipper
+                     , text
+                     , regex-compat-tdfa
   default-language:    Haskell2010
 
 test-suite advent2017-test

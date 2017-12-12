@@ -1,8 +1,17 @@
 module Main where
 
 import Lib
-import Data.Char (digitToInt)
-import Data.List (intersperse, sort)
+import Text.Regex
+import qualified Data.Maybe as Mbe
+import Data.Maybe(Maybe(Just, Nothing))
+import qualified Data.Text as Txt
+import Data.Text (Text)
+import qualified Data.Tree as Tree
+import Data.Tree (Tree(Node))
+import qualified Data.Char as Chr
+import qualified Data.List as Lst
+import qualified Data.Map.Strict as Map
+import Data.Map.Strict (Map)
 import Data.List.Split (splitOn)
 import System.Environment (getArgs)
 import qualified Data.Set as Set
@@ -15,7 +24,7 @@ import Data.List.Zipper (Zipper(Zip))
 import Debug.Trace (trace)
 
 concatArgsX :: String -> String -> String -> [String] -> String
-concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ intersperse delimiter args
+concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ Lst.intersperse delimiter args
 
 concatArgs = concatArgsX "" "" ""
 
@@ -36,7 +45,7 @@ halfwayAround xs = (drop n xs) ++ (take n xs)
 advent1 :: IO ()
 advent1 = do
     args <- fmap concatArgs getArgs
-    let intList = fmap digitToInt args
+    let intList = fmap Chr.digitToInt args
     let matchFlags = matchesNext intList
     let result = sum $ map fst $ filter snd $ zip intList matchFlags
     (putStrLn . show ) result
@@ -88,7 +97,7 @@ advent4 = do
     inputs <- readFile inputFile
     let passphrases = fmap (splitOn " ") $ splitOn "\n" inputs
     putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 passphrases
-    putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 $ fmap (fmap sort) passphrases
+    putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 $ fmap (fmap Lst.sort) passphrases
 
 applyN n f = foldr (.) id (replicate n f)
 
@@ -144,11 +153,46 @@ advent6 = do
     putStrLn $ show cycleCount
     putStrLn $ show $ snd $ distributeAndLoop loopStart
 
+treeName = fst . Tree.rootLabel
+
+hasKid :: String -> Tree (String, Int) -> Bool
+hasKid kidName (Node _ kids) = Lst.elem kidName $ fmap treeName kids
+
+nameWeightRegex = mkRegex "^([a-z]+) \\(([0-9]+)\\)$"
+
+weightedName :: String -> Tree (String, Int)
+weightedName str = Tree.Node (name, weight) []
+    where
+        matches = Mbe.fromJust $ matchRegex nameWeightRegex str
+        name = matches !! 0
+        weight = read $ matches !! 1
+
+nameWeightKidsRegex = mkRegex "^([a-z]+) \\(([0-9]+)\\) -> (.*)$"
+
+weightedNameAndKids :: String -> Tree (String, Int)
+weightedNameAndKids str = Tree.Node (name, weight) $ fmap treeStub kids
+    where
+        matches = Mbe.fromJust $ matchRegex nameWeightKidsRegex str
+        name = matches !! 0
+        weight = read $ matches !! 1
+        kids = splitOn ", " $ matches !! 2
+
+treeFromLine :: String -> Tree (String, Int)
+treeFromLine line =
+    if (Chr.isAlpha $ last line) then
+        weightedNameAndKids line
+    else
+        weightedName line
+
+treeStub :: String -> Tree (String, Int)
+treeStub name = Tree.Node (name, 0) []
+
 advent7 :: IO ()
 advent7 = do
     inputs <- fmap head getArgs >>= readFile
-    let nodes = splitOn "\n" inputs
-    putStrLn $ show nodes
+    let lines = splitOn "\n" inputs
+    let root = "hmvwl"
+    putStrLn $ show $ fmap treeFromLine lines
 
 main :: IO ()
-main = advent6
+main = advent7
