@@ -262,21 +262,24 @@ parseInstruction line = (register, op, val, condition)
 
 instructionRegex = mkRegex "^([a-z]+) (inc|dec) (-?[0-9]+) if ([a-z]+) (!=|==|<|>|<=|>=) (-?[0-9]+)$"
 
-readInstruction :: Map String Int -> String -> Map String Int
-readInstruction registers line = readInstruction' $ parseInstruction line
+readInstruction :: (Map String Int, Int) -> String -> (Map String Int, Int)
+readInstruction (registers, currentMax) line = readInstruction' $ parseInstruction line
     where
         readInstruction' (register, op, val, condition) =
+            let newVal = applyOp op 0 val in
+            let newRegisters = Map.insertWith (+) register newVal registers in
             if condition registers then
-                Map.insertWith (+) register (applyOp op 0 val) registers
+                (newRegisters, max currentMax $ newRegisters Map.! register)
             else
-                registers
+                (registers, currentMax)
 
 advent8 :: IO ()
 advent8 = do
     inputs <- fmap head getArgs >>= readFile
     let lines = splitOn "\n" inputs
-    let registers = foldl readInstruction Map.empty lines
+    let (registers, grandMax) = foldl readInstruction (Map.empty, 0) lines
     putStrLn $ show $ maximum $ Map.elems registers
+    putStrLn $ show grandMax
 
 main :: IO ()
 main = advent8
