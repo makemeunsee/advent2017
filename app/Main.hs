@@ -187,12 +187,81 @@ treeFromLine line =
 treeStub :: String -> Tree (String, Int)
 treeStub name = Tree.Node (name, 0) []
 
+pairWith :: (a -> b) -> a -> (b, a)
+pairWith f x = (f x, x)
+
+uglyDuckling :: Eq a => [a] -> [b] -> Maybe (b, a, a)
+uglyDuckling [] _ = Nothing
+uglyDuckling [_] _ = Nothing
+uglyDuckling [_, _] _ = Nothing
+uglyDuckling (x : y : z : r) (bx : by : bz : br) =
+    if x == y && y == z then
+        uglyDuckling (y : z : r) (by : bz : br)
+    else if x == y then
+        Just (bz, z, x)
+    else if y == z then
+        Just (bx, x, y)
+    else
+        Just (by, y, x)
+
+badWeight :: Map String (Tree (String, Int)) -> Tree (String, Int) -> Maybe (Int, Int, Int)
+badWeight index (Node (_, w) []) = Nothing
+badWeight index t@(Node (_, w) kids) =
+    if Mbe.isJust mBadKid then
+        mBadKid
+    else
+        mBadWeight
+    where
+        mBadWeight = uglyDuckling kidsWeights $ fmap (snd . Tree.rootLabel) kidsWithKids
+        kidsTotalWeight = sum kidsWeights
+        kidsWeights = fmap (fullWeight index) kidsWithKids
+        mBadKid = (Mbe.listToMaybe . Mbe.catMaybes) $ fmap (badWeight index) kidsWithKids
+        kidsWithKids = fmap ((index Map.!) . treeName) kids
+
+fullWeight :: Map String (Tree (String, Int)) -> Tree (String, Int) -> Int
+fullWeight index (Node (_, w) []) = w
+fullWeight index (Node (_, w) kids) = sum $ w : (fmap (fullWeight index) kidsWithKids)
+    where
+        kidsWithKids = fmap ((index Map.!) . treeName) kids
+
 advent7 :: IO ()
 advent7 = do
     inputs <- fmap head getArgs >>= readFile
     let lines = splitOn "\n" inputs
-    let root = "hmvwl"
-    putStrLn $ show $ fmap treeFromLine lines
+    let root = "hmvwl" -- from ctrl-f'ing in input file
+    putStrLn root
+    let index = Map.fromList $ fmap ((pairWith treeName) . treeFromLine) lines
+    let mBadWeight = badWeight index $ index Map.! root
+    let mCorrectWeight = fmap (\(selfWeight, fullWeight, correctFullWeight) -> selfWeight + correctFullWeight - fullWeight) mBadWeight
+    putStrLn $ show mBadWeight
+    putStrLn $ show mCorrectWeight
+
+data Op = Inc | Dec
+applyOp Inc = (+)
+applyOp Dec = (-)
+
+readInstruction :: Map String Int -> String -> Op -> Int -> (Map String Int -> Bool) -> Map String Int
+readInstruction registers register op val condition =
+    if condition registers then
+        Map.insertWith (+) register (applyOp op 0 val) registers
+    else
+        registers
+
+advent8 :: IO ()
+advent8 = do
+    inputs <- fmap head getArgs >>= readFile
+    let lines = splitOn "\n" inputs
+    let r1 = readInstruction Map.empty "a" Inc 3 (\_ -> True)
+    putStrLn $ show r1
+    let r2 = readInstruction r1 "a" Dec 5 (\_ -> True)
+    putStrLn $ show r2
+    let r3 = readInstruction r2 "a" Dec 5 (\_ -> False)
+    putStrLn $ show r3
+    let r4 = readInstruction r3 "b" Dec 5 (\_ -> True)
+    putStrLn $ show r4
+    let r5 = readInstruction r4 "c" Dec 5 (\_ -> True)
+    putStrLn $ show r5
+
 
 main :: IO ()
-main = advent7
+main = advent8
