@@ -1,6 +1,7 @@
 module Main where
 
 import Lib
+import Control.Applicative
 import Text.Regex
 import qualified Data.Maybe as Mbe
 import Data.Maybe(Maybe(Just, Nothing))
@@ -12,7 +13,7 @@ import qualified Data.Char as Chr
 import qualified Data.List as Lst
 import qualified Data.Map.Strict as Map
 import Data.Map.Strict (Map)
-import Data.List.Split (splitOn)
+import Data.List.Split (splitOn, chunksOf)
 import System.Environment (getArgs)
 import qualified Data.Set as Set
 import qualified Data.Sequence as Seq
@@ -20,8 +21,11 @@ import Data.Sequence (Seq)
 import Data.Foldable (toList)
 import qualified Data.List.Zipper as Zp
 import Data.List.Zipper (Zipper(Zip))
+import Data.Char as Chr
+import Data.Bits (xor)
+import Text.Printf (printf)
 
-import Debug.Trace (trace)
+import Debug.Trace (traceShowId)
 
 concatArgsX :: String -> String -> String -> [String] -> String
 concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ Lst.intersperse delimiter args
@@ -301,30 +305,44 @@ advent9 = do
     stream <- fmap head getArgs >>= readFile
     putStrLn $ show $ processStream stream
 
-morphism :: Int -> (Int, Int, Int) -> (Int -> Int)
-morphism fullL (l, st, sk) = \i ->
+morphism :: Int -> (Int, Int) -> (Int -> Int)
+morphism _ (0, _) = id
+morphism fullL (l, st) = \i ->
     if (i >= actualSt) `binOp` (i < actualEnd) then
-        (sk + st + sk + st + l - 1 - i) `mod` fullL
+        (2 * actualSt + l - 1 - i) `mod` fullL
     else
         i
     where
-        actualSt = (st + sk) `mod` fullL
-        actualEnd = (st + l + sk) `mod` fullL
-        rev = actualEnd < actualSt
+        actualSt = st `mod` fullL
+        actualEnd = (st + l) `mod` fullL
+        rev = actualEnd <= actualSt
         binOp = if rev then (||) else (&&)
+
+prepareHashArgs :: [Int] -> [(Int, Int)]
+prepareHashArgs lengths = r
+    where
+        (r, _, _) = foldl (\(rs, start, skip) l -> ((l, start) : rs, start+skip+l, skip+1)) ([], 0, 0) lengths
+
+densifyHash :: [Int] -> String
+densifyHash sparseHash = concat $ fmap ((printf "%02x") . (foldr xor 0)) $ chunksOf 16 sparseHash
 
 advent10 :: IO ()
 advent10 = do
+    size <- fmap (read . head . tail) getArgs
     input <- fmap head getArgs >>= readFile
     let lengths = fmap read $ splitOn "," input
-    -- let args = reverse $ foldl (\(rs, (prevStart, prevSkip)) l -> ((l, prevStart, prevSkip) : rs, (prevStart+prevSkip+l,prevSkip+1))) ([], (0,0)) lengths
-    let args = (\(r,_,_)->r) $ foldl (\(rs, prevStart, prevSkip) l -> ((l, prevStart, prevSkip) : rs, prevStart+prevSkip+l, prevSkip+1)) ([], 0, 0) lengths
-    -- let composed = foldr (\m c -> c . m) id $ fmap (morphism 5) args
-    -- putStrLn $ show $ composed 0
-    -- putStrLn $ show $ composed 1
-    -- putStrLn $ show $ composed 0 * composed 1
-    let morphisms = reverse $ fmap (morphism 5) args
-    putStrLn $ show $ fmap (morphisms !! 0) [0..4]
+    let args = prepareHashArgs lengths
+    let morphisms = fmap (morphism size) args
+    -- mapM_ print $ fmap (\m -> fmap m [0..size-1]) $ reverse morphisms
+    let (r0, r1) = foldl (\(i0, i1) m -> (m i0, m i1)) (0, 1) morphisms
+    print $ r0 * r1
+    let suffix = [17, 31, 73, 47, 23]
+    let lengths2 = (fmap Chr.ord input) ++ suffix
+    let lengths2x64 = concat $ replicate 64 lengths2
+    let args2 = prepareHashArgs lengths2x64
+    let morphisms2 = fmap (morphism size) args2
+    let sparseHash = foldl (flip fmap) [0..size-1] morphisms2
+    putStrLn $ densifyHash sparseHash
 
 main :: IO ()
 main = advent10
