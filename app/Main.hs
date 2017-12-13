@@ -281,5 +281,50 @@ advent8 = do
     putStrLn $ show $ maximum $ Map.elems registers
     putStrLn $ show grandMax
 
+data StreamState = Block | Garbage
+
+processStream :: String -> (Int, Int)
+processStream = processStream' 0 0 0 False Block
+    where
+        processStream' accA accB depth ignoreNext streamState [] = (accA, accB)
+        processStream' accA accB depth True streamState (c : cs) = processStream' accA accB depth False streamState cs
+        processStream' accA accB depth False Garbage ('!' : cs) = processStream' accA accB depth True Garbage cs
+        processStream' accA accB depth False Garbage ('>' : cs) = processStream' accA accB depth False Block cs
+        processStream' accA accB depth False Garbage (_ : cs) = processStream' accA (accB+1) depth False Garbage cs
+        processStream' accA accB depth False Block ('{' : cs) = processStream' accA accB (depth+1) False Block cs
+        processStream' accA accB depth False Block ('}' : cs) = processStream' (accA+depth) accB (depth-1) False Block cs
+        processStream' accA accB depth False Block ('<' : cs) = processStream' accA accB depth False Garbage cs
+        processStream' accA accB depth False Block (_ : cs) = processStream' accA accB depth False Block cs
+
+advent9 :: IO ()
+advent9 = do
+    stream <- fmap head getArgs >>= readFile
+    putStrLn $ show $ processStream stream
+
+morphism :: Int -> (Int, Int, Int) -> (Int -> Int)
+morphism fullL (l, st, sk) = \i ->
+    if (i >= actualSt) `binOp` (i < actualEnd) then
+        (sk + st + sk + st + l - 1 - i) `mod` fullL
+    else
+        i
+    where
+        actualSt = (st + sk) `mod` fullL
+        actualEnd = (st + l + sk) `mod` fullL
+        rev = actualEnd < actualSt
+        binOp = if rev then (||) else (&&)
+
+advent10 :: IO ()
+advent10 = do
+    input <- fmap head getArgs >>= readFile
+    let lengths = fmap read $ splitOn "," input
+    -- let args = reverse $ foldl (\(rs, (prevStart, prevSkip)) l -> ((l, prevStart, prevSkip) : rs, (prevStart+prevSkip+l,prevSkip+1))) ([], (0,0)) lengths
+    let args = (\(r,_,_)->r) $ foldl (\(rs, prevStart, prevSkip) l -> ((l, prevStart, prevSkip) : rs, prevStart+prevSkip+l, prevSkip+1)) ([], 0, 0) lengths
+    -- let composed = foldr (\m c -> c . m) id $ fmap (morphism 5) args
+    -- putStrLn $ show $ composed 0
+    -- putStrLn $ show $ composed 1
+    -- putStrLn $ show $ composed 0 * composed 1
+    let morphisms = reverse $ fmap (morphism 5) args
+    putStrLn $ show $ fmap (morphisms !! 0) [0..4]
+
 main :: IO ()
-main = advent8
+main = advent10
