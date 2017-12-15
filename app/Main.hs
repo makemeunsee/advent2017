@@ -16,14 +16,16 @@ import Data.Map.Strict (Map)
 import Data.List.Split (splitOn, chunksOf)
 import System.Environment (getArgs)
 import qualified Data.Set as Set
+import Data.Set (Set)
 import qualified Data.Sequence as Seq
 import Data.Sequence (Seq)
 import Data.Foldable (toList)
 import qualified Data.List.Zipper as Zp
 import Data.List.Zipper (Zipper(Zip))
 import Data.Char as Chr
-import Data.Bits (xor)
+import Data.Bits (xor, popCount)
 import Text.Printf (printf)
+import Numeric (readHex)
 
 import Debug.Trace (traceShowId, traceShow)
 
@@ -323,8 +325,21 @@ prepareHashArgs lengths = r
     where
         (r, _, _) = foldl (\(rs, start, skip) l -> ((l, start) : rs, start+skip+l, skip+1)) ([], 0, 0) lengths
 
-densifyHash :: [Int] -> String
-densifyHash sparseHash = concat $ fmap ((printf "%02x") . (foldr xor 0)) $ chunksOf 16 sparseHash
+densifyHash :: [Int] -> [Int]
+densifyHash sparseHash = fmap (foldr xor 0) $ chunksOf 16 sparseHash
+
+stringifyHash :: [Int] -> String
+stringifyHash = concat . fmap (printf "%02x")
+
+fullHash :: Int -> String -> [Int]
+fullHash size input =
+    let suffix = [17, 31, 73, 47, 23] in
+    let lengths = (fmap Chr.ord input) ++ suffix in
+    let lengthsx64 = concat $ replicate 64 lengths in
+    let args = prepareHashArgs lengthsx64 in
+    let morphisms = fmap (morphism size) args in
+    let sparseHash = foldl (flip fmap) [0..size-1] morphisms in
+    densifyHash sparseHash
 
 advent10 :: IO ()
 advent10 = do
@@ -336,13 +351,7 @@ advent10 = do
     -- mapM_ print $ fmap (\m -> fmap m [0..size-1]) $ reverse morphisms
     let (r0, r1) = foldl (\(i0, i1) m -> (m i0, m i1)) (0, 1) morphisms
     print $ r0 * r1
-    let suffix = [17, 31, 73, 47, 23]
-    let lengths2 = (fmap Chr.ord input) ++ suffix
-    let lengths2x64 = concat $ replicate 64 lengths2
-    let args2 = prepareHashArgs lengths2x64
-    let morphisms2 = fmap (morphism size) args2
-    let sparseHash = foldl (flip fmap) [0..size-1] morphisms2
-    putStrLn $ densifyHash sparseHash
+    putStrLn $ stringifyHash $ fullHash size input
 
 tokenToCoords :: String -> (Int, Int, Int)
 tokenToCoords "se" = (1,-1,0)
@@ -367,6 +376,99 @@ advent11 = do
     let (pos, maxDist) = foldl foldFct ((0,0,0), 0) coords
     print $ dist pos
     print maxDist
-    
+
+lineToRelations :: String -> (String, Set String)
+lineToRelations line = (refPid, Set.fromList $ refPid : pids)
+    where
+        [refPid, rawPids] = splitOn " <-> " line
+        pids = splitOn ", " rawPids
+
+group' :: Map String (Set String) -> [String] -> Set String -> Set String -> Set String
+group' _ [] _ acc = acc
+group' relations (s : ss) checked acc
+    | Set.member s checked = group' relations ss checked acc
+    | otherwise            = group' relations (ss ++ (Set.toList newToCheck)) (Set.insert s checked) (Set.union acc $ newRelations)
+    where
+        newRelations = relations Map.! s
+        newToCheck = newRelations Set.\\ checked
+
+group :: Map String (Set String) -> String -> Set String
+group relations element = group' relations [element] Set.empty Set.empty
+
+relationGroups :: Map String (Set String) -> Set String -> Set (Set String)
+relationGroups relations keysToCheck = groups (group relations) keysToCheck Set.empty
+
+groups :: Ord a => (a -> Set a) -> Set a -> Set (Set a) -> Set (Set a)
+groups groupFct candidates acc
+    | Set.null candidates = acc
+    | otherwise           = groups groupFct (candidates Set.\\ newGroup Set.\\ Set.singleton element) (Set.insert newGroup acc)
+    where
+        newGroup = groupFct element
+        element = Set.elemAt 0 candidates
+
+advent12 :: IO ()
+advent12 = do
+    input <- fmap head getArgs >>= readFile
+    let relations = Map.fromList $ fmap lineToRelations $ lines input
+    print $ Set.size $ group relations "0"
+    print $ Set.size $ relationGroups relations $ Map.keysSet relations
+
+severity :: (Int, Int) -> Int
+severity (depth, range) = if depth `mod` period == 0 then depth * range else 0
+    where period = (range - 1) * 2
+
+noCatch :: [(Int, Int)] -> Int -> Bool
+noCatch layers delay = all (\(layer, range) -> (layer + delay) `mod` ((range - 1) * 2) /= 0) layers
+
+advent13 :: IO ()
+advent13 = do
+    input <- fmap head getArgs >>= readFile
+    let lineToLayer = (\[d, r] -> (read d, read r)) . (splitOn ": ")
+    let layers = fmap lineToLayer $ lines input
+    print $ sum $ fmap severity layers
+    print $ head $ filter (noCatch layers) [0..]
+
+hashToBinMap :: [Int] -> String
+hashToBinMap = concat . fmap (printf "%08b")
+
+fragGroup :: Map (Int, Int) Char -> Set (Int, Int) -> (Int, Int) -> (Set (Int, Int), Set (Int, Int))
+fragGroup = fragGroup' Set.empty
+    where
+        fragGroup' acc binMap checked p@(x, y)
+            | Map.lookup p binMap == Nothing  = (acc, Set.insert p checked)
+            | Map.lookup p binMap == Just '0' = (acc, Set.insert p checked)
+            | Map.lookup p binMap == Just '1' =
+                let neighbours = [(x-1,y), (x+1,y), (x,y-1), (x,y+1)] in
+                let filteredNeighbours = filter (\n -> Set.notMember n checked) neighbours in
+                foldr (\p' (acc', checked') -> fragGroup' acc' binMap checked' p') (Set.insert p acc, Set.insert p checked) filteredNeighbours
+
+betterGroups :: Ord a => (Set a -> a -> (Set a, Set a)) -> Set a -> Set (Set a)
+betterGroups = betterGroups' Set.empty Set.empty
+    where
+        betterGroups' elementsChecked acc groupFct elementsToCheck
+            | Set.null elementsToCheck = acc
+            | otherwise                = betterGroups' checked' acc' groupFct toCheck'
+            where
+                element = Set.elemAt 0 elementsToCheck
+                (newGroup, checked') = groupFct elementsChecked element
+                toCheck' = elementsToCheck Set.\\ checked'
+                acc' = Set.insert newGroup acc
+
+advent14 :: IO ()
+advent14 = do
+    input <- fmap ((++ "-") . head) getArgs
+    let inputs = take 128 $ fmap ((++) input . show) [0..]
+    let hashes = fmap (fullHash 256) inputs
+    -- mapM_ print $ fmap stringifyBinary hashes
+    let r1 = sum $ fmap (sum . (fmap popCount)) hashes
+    print r1
+    let binMap = Map.fromList $ do
+            (col, x) <- zip (fmap hashToBinMap hashes) [0..]
+            (bit, y) <- zip col [0..]
+            return ((x, y), bit)
+    let sizePlusOne = Set.size $ betterGroups (fragGroup binMap) (Map.keysSet binMap)
+    -- minus one as we have the empty set in there
+    print $ sizePlusOne - 1
+
 main :: IO ()
-main = advent11
+main = advent14
