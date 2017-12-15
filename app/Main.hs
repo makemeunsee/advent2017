@@ -25,7 +25,7 @@ import Data.Char as Chr
 import Data.Bits (xor)
 import Text.Printf (printf)
 
-import Debug.Trace (traceShowId)
+import Debug.Trace (traceShowId, traceShow)
 
 concatArgsX :: String -> String -> String -> [String] -> String
 concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ Lst.intersperse delimiter args
@@ -344,5 +344,29 @@ advent10 = do
     let sparseHash = foldl (flip fmap) [0..size-1] morphisms2
     putStrLn $ densifyHash sparseHash
 
+tokenToCoords :: String -> (Int, Int, Int)
+tokenToCoords "se" = (1,-1,0)
+tokenToCoords "n" = (0,1,-1)
+tokenToCoords "sw" = (-1,0,1)
+tokenToCoords "nw" = (-1,1,0)
+tokenToCoords "s" = (0,-1,1)
+tokenToCoords "ne" = (1,0,-1)
+
+dist :: (Int, Int, Int) -> Int
+dist (x, y, z) = (abs x + abs y + abs z) `div` 2
+
+foldFct :: ((Int, Int, Int), Int) -> (Int, Int, Int) -> ((Int, Int, Int), Int)
+foldFct ((x0, y0, z0), max0) (x, y, z) =
+    let r = (x+x0, y+y0, z+z0) in
+    (r, max (dist r) max0)
+
+advent11 :: IO ()
+advent11 = do
+    input <- fmap head getArgs >>= readFile
+    let coords = fmap tokenToCoords $ splitOn "," input
+    let (pos, maxDist) = foldl foldFct ((0,0,0), 0) coords
+    print $ dist pos
+    print maxDist
+    
 main :: IO ()
-main = advent10
+main = advent11
