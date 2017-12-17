@@ -23,7 +23,7 @@ import Data.Foldable (toList)
 import qualified Data.List.Zipper as Zp
 import Data.List.Zipper (Zipper(Zip))
 import Data.Char as Chr
-import Data.Bits (xor, popCount)
+import Data.Bits (xor, popCount, (.&.))
 import Text.Printf (printf)
 import Numeric (readHex)
 
@@ -459,7 +459,6 @@ advent14 = do
     input <- fmap ((++ "-") . head) getArgs
     let inputs = take 128 $ fmap ((++) input . show) [0..]
     let hashes = fmap (fullHash 256) inputs
-    -- mapM_ print $ fmap stringifyBinary hashes
     let r1 = sum $ fmap (sum . (fmap popCount)) hashes
     print r1
     let binMap = Map.fromList $ do
@@ -470,5 +469,22 @@ advent14 = do
     -- minus one as we have the empty set in there
     print $ sizePlusOne - 1
 
+gen :: Int -> Int -> Int
+gen factor prev = (prev * factor) `mod` 2147483647
+
+sameLowest16Bits :: Int -> Int -> Bool
+sameLowest16Bits m n = (m .&. 0xffff) == (n .&. 0xffff)
+
+advent15 :: IO ()
+advent15 = do
+    seedA <- fmap (read . head) getArgs
+    let genA = iterate (gen 16807) seedA
+    seedB <- fmap (read . head . tail) getArgs
+    let genB = iterate (gen 48271) seedB
+    print $ length $ filter (uncurry sameLowest16Bits) $ take 40000000 $ drop 1 $ zip genA genB
+    let genA' = filter (\n -> n `mod` 4 == 0) genA
+    let genB' = filter (\n -> n `mod` 8 == 0) genB
+    print $ length $ filter (uncurry sameLowest16Bits) $ take 5000000 $ drop 1 $ zip genA' genB'
+
 main :: IO ()
-main = advent14
+main = advent15
