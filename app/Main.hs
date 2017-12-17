@@ -518,9 +518,7 @@ applyMoves n (moves:movess) programs = applyMoves (n-1) movess $ foldl applyMove
 advent16 :: IO ()
 advent16 = do
     input <- fmap head getArgs >>= readFile
-    let moves = splitOn "," input
-    let repeatedMoves = repeat moves
-    let movesLength = length moves
+    let repeatedMoves = repeat $ splitOn "," input
     let programs0 = Seq.fromList $ take 16 ['a'..]
     
     let period = countMovesUntil 0 programs0 (== programs0) repeatedMoves
