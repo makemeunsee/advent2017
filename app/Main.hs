@@ -486,5 +486,49 @@ advent15 = do
     let genB' = filter (\n -> n `mod` 8 == 0) genB
     print $ length $ filter (uncurry sameLowest16Bits) $ take 5000000 $ drop 1 $ zip genA' genB'
 
+applyMove :: Seq Char -> String -> Seq Char
+applyMove programs ['p', p1, '/', p2] = Seq.update p1Id p2 $ Seq.update p2Id p1 programs
+    where
+        p1Id = Mbe.fromJust $ Seq.elemIndexL p1 programs
+        p2Id = Mbe.fromJust $ Seq.elemIndexL p2 programs
+applyMove programs ('s' : r) = (Seq.drop l programs) Seq.>< (Seq.take l programs)
+    where
+        l = 16 - read r
+applyMove programs ('x' : r) = Seq.update id1 p2 $ Seq.update id2 p1 programs
+    where
+        p1 = Seq.index programs id1
+        p2 = Seq.index programs id2
+        id1 = read $ head parts
+        id2 = read $ head $ tail parts
+        parts = splitOn "/" r
+
+countMovesUntil :: Int -> Seq Char -> (Seq Char -> Bool) -> [[String]] -> Int
+countMovesUntil count programs stopCondition moves =
+    if stopCondition r then
+        count+1
+    else
+        countMovesUntil (count+1) r stopCondition (tail moves)
+    where
+        r = applyMoves 1 moves programs
+
+applyMoves :: Int -> [[String]] -> Seq Char -> Seq Char
+applyMoves 0 _ programs = programs
+applyMoves n (moves:movess) programs = applyMoves (n-1) movess $ foldl applyMove programs moves
+
+advent16 :: IO ()
+advent16 = do
+    input <- fmap head getArgs >>= readFile
+    let moves = splitOn "," input
+    let repeatedMoves = repeat moves
+    let movesLength = length moves
+    let programs0 = Seq.fromList $ take 16 ['a'..]
+    
+    let period = countMovesUntil 0 programs0 (== programs0) repeatedMoves
+
+    print $ applyMoves 1 repeatedMoves programs0
+    let n = 1000000000 `mod` period
+    print $ applyMoves n repeatedMoves programs0
+
+
 main :: IO ()
-main = advent15
+main = advent16
