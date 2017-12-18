@@ -502,30 +502,20 @@ applyMove programs ('x' : r) = Seq.update id1 p2 $ Seq.update id2 p1 programs
         id2 = read $ head $ tail parts
         parts = splitOn "/" r
 
-countMovesUntil :: Int -> Seq Char -> (Seq Char -> Bool) -> [[String]] -> Int
-countMovesUntil count programs stopCondition moves =
-    if stopCondition r then
-        count+1
-    else
-        countMovesUntil (count+1) r stopCondition (tail moves)
-    where
-        r = applyMoves 1 moves programs
-
-applyMoves :: Int -> [[String]] -> Seq Char -> Seq Char
-applyMoves 0 _ programs = programs
-applyMoves n (moves:movess) programs = applyMoves (n-1) movess $ foldl applyMove programs moves
+countUntil :: (a -> Bool) -> [a] -> Int
+countUntil stopCondition as = length $ takeWhile (not . stopCondition) as
 
 advent16 :: IO ()
 advent16 = do
     input <- fmap head getArgs >>= readFile
-    let repeatedMoves = repeat $ splitOn "," input
+    let moves = splitOn "," input
     let programs0 = Seq.fromList $ take 16 ['a'..]
-    
-    let period = countMovesUntil 0 programs0 (== programs0) repeatedMoves
+    let iterateDance = iterate (\programs -> foldl applyMove programs moves) programs0
+    let applyMoves n = head $ drop n iterateDance
+    print $ applyMoves 1
 
-    print $ applyMoves 1 repeatedMoves programs0
-    let n = 1000000000 `mod` period
-    print $ applyMoves n repeatedMoves programs0
+    let period = countUntil (== programs0) (tail iterateDance) + 1
+    print $ applyMoves $ 1000000000 `mod` period
 
 
 main :: IO ()
