@@ -517,6 +517,28 @@ advent16 = do
     let period = countUntil (== programs0) (tail iterateDance) + 1
     print $ applyMoves $ 1000000000 `mod` period
 
+moveAndInsert :: Int -> Int -> Int -> (Seq Int, Int) -> (Seq Int, Int)
+moveAndInsert limit inc val t@(seq, pos)
+    | limit == val = t
+    | otherwise = moveAndInsert limit inc (val+1) (newSeq, newPos)
+    where
+        newPos = 1 + (pos + inc) `mod` val
+        newSeq = Seq.insertAt newPos val seq
+
+moveAndFakeInsert :: Int -> Int -> Int -> (Int, Int) -> (Int, Int)
+moveAndFakeInsert limit inc val t@(x, pos)
+    | val > limit = t
+    | otherwise = moveAndFakeInsert limit inc (val+1) (newX, newPos)
+    where
+        newPos = 1 + (pos + inc) `mod` val
+        newX = if newPos == 1 then val else x
+
+advent17 :: IO ()
+advent17 = do
+    input <- fmap (read . head) getArgs
+    let (r, i) = moveAndInsert 2017 input 1 (Seq.singleton 0, 0)
+    print $ Seq.index r (i+1)
+    print $ fst $ moveAndFakeInsert 50000000 input 1 (0, 0)
 
 main :: IO ()
-main = advent16
+main = advent17
