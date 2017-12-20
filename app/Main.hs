@@ -1,33 +1,33 @@
 module Main where
 
-import Lib
-import Control.Applicative
-import Text.Regex
-import qualified Data.Maybe as Mbe
-import Data.Maybe(Maybe(Just, Nothing))
-import qualified Data.Text as Txt
-import Data.Text (Text)
-import qualified Data.Tree as Tree
-import Data.Tree (Tree(Node))
-import qualified Data.Char as Chr
-import qualified Data.List as Lst
-import qualified Data.Map.Strict as Map
-import Data.Map.Strict (Map)
-import Data.List.Split (splitOn, chunksOf)
-import System.Environment (getArgs)
-import qualified Data.Set as Set
-import Data.Set (Set)
-import qualified Data.Sequence as Seq
-import Data.Sequence (Seq)
-import Data.Foldable (toList)
-import qualified Data.List.Zipper as Zp
-import Data.List.Zipper (Zipper(Zip))
-import Data.Char as Chr
-import Data.Bits (xor, popCount, (.&.))
-import Text.Printf (printf)
-import Numeric (readHex)
+import           Control.Applicative
+import           Data.Bits           (popCount, xor, (.&.))
+import           Data.Char           as Chr
+import qualified Data.Char           as Chr
+import           Data.Foldable       (toList)
+import qualified Data.List           as Lst
+import           Data.List.Split     (chunksOf, splitOn)
+import           Data.List.Zipper    (Zipper (Zip))
+import qualified Data.List.Zipper    as Zp
+import           Data.Map.Strict     (Map)
+import qualified Data.Map.Strict     as Map
+import           Data.Maybe          (Maybe (Just, Nothing))
+import qualified Data.Maybe          as Mbe
+import           Data.Sequence       (Seq)
+import qualified Data.Sequence       as Seq
+import           Data.Set            (Set)
+import qualified Data.Set            as Set
+import           Data.Text           (Text)
+import qualified Data.Text           as Txt
+import           Data.Tree           (Tree (Node))
+import qualified Data.Tree           as Tree
+import           Lib
+import           Numeric             (readHex)
+import           System.Environment  (getArgs)
+import           Text.Printf         (printf)
+import           Text.Regex
 
-import Debug.Trace (traceShowId, traceShow)
+import           Debug.Trace         (traceShow, traceShowId)
 
 concatArgsX :: String -> String -> String -> [String] -> String
 concatArgsX prefix delimiter suffix args = (++) prefix $ foldr (++) suffix $ Lst.intersperse delimiter args
@@ -39,7 +39,7 @@ matchesNext [] = []
 matchesNext (x : xs) = matchesNext' x ( x : xs )
     where
         matchesNext' :: Eq a => a -> [a] -> [Bool]
-        matchesNext' h [x] = [h == x]
+        matchesNext' h [x]           = [h == x]
         matchesNext' h (x : x' : xs) = (x == x') : (matchesNext' h (x' : xs))
 
 halfwayAround :: [a] -> [a]
@@ -54,9 +54,9 @@ advent1 = do
     let intList = fmap Chr.digitToInt args
     let matchFlags = matchesNext intList
     let result = sum $ map fst $ filter snd $ zip intList matchFlags
-    (putStrLn . show ) result
-    let result2 = sum $ map fst $ filter (\(x,y) -> x == y) $ zip intList (halfwayAround intList)
-    (putStrLn . show ) result2
+    print result
+    let result2 = sum $ map fst $ filter (uncurry (==)) $ zip intList (halfwayAround intList)
+    print result2
 
 
 stringToInts :: String -> [Int]
@@ -68,18 +68,18 @@ minAndMax (currentMin, currentMax) x = (min x currentMin, max x currentMax)
 evenDivisions :: [Int] -> [Int]
 evenDivisions xs = [ x `div` y | x <- xs, y <- xs, x > y, x `mod` y == 0]
 
-hasDuplicate [] = False
+hasDuplicate []       = False
 hasDuplicate (x : xs) = elem x xs || hasDuplicate xs
-    
+
 -- advent2 input
 -- 121,59,141,21,120,67,58,49,22,46,56,112,53,111,104,130 1926,1910,760,2055,28,2242,146,1485,163,976,1842,1982,137,1387,162,789 4088,258,2060,1014,4420,177,4159,194,2794,4673,4092,681,174,2924,170,3548 191,407,253,192,207,425,580,231,197,382,404,472,164,571,500,216 4700,1161,168,5398,5227,5119,252,2552,4887,5060,1152,3297,847,4525,220,262 2417,992,1445,184,554,2940,209,2574,2262,1911,2923,204,2273,2760,506,157 644,155,638,78,385,408,152,360,588,618,313,126,172,220,217,161 227,1047,117,500,1445,222,29,913,190,791,230,1281,1385,226,856,1380 436,46,141,545,122,86,283,124,249,511,347,502,168,468,117,94 2949,3286,2492,2145,1615,159,663,1158,154,939,166,2867,141,324,2862,641 1394,151,90,548,767,1572,150,913,141,1646,154,1351,1506,1510,707,400 646,178,1228,1229,270,167,161,1134,193,1312,1428,131,1457,719,1288,989 1108,1042,93,140,822,124,1037,1075,125,941,1125,298,136,94,135,711 112,2429,1987,2129,2557,1827,477,100,78,634,352,1637,588,77,1624,2500 514,218,209,185,197,137,393,555,588,569,710,537,48,309,519,138 1567,3246,4194,151,3112,903,1575,134,150,4184,3718,4077,180,4307,4097,1705
 advent2 :: IO ()
 advent2 = do
     int2d <- fmap (fmap stringToInts) getArgs
     let extractMinMax = foldl minAndMax (10000, 0)
-    let pairDiff = \(x,y) -> y - x
-    putStrLn $ show $ sum $ fmap (pairDiff . extractMinMax) int2d
-    putStrLn $ show $ sum $ fmap (head . evenDivisions) int2d
+    let pairDiff = (uncurry . flip) (-)
+    print $ sum $ fmap (pairDiff . extractMinMax) int2d
+    print $ sum $ fmap (head . evenDivisions) int2d
 
 nextOdd :: Int -> Int
 nextOdd n = if n `mod` 2 == 0 then n+1 else n
@@ -94,7 +94,7 @@ advent3 = do
                , side*side - dMin*5
                , side*side - dMin*7]
     let result = (+) dMin $ foldl min n $ fmap (abs . (n -)) mins
-    putStrLn $ show $ result
+    print result
     --res2: https://oeis.org/A141481 ...
 
 advent4 :: IO ()
@@ -102,8 +102,9 @@ advent4 = do
     inputFile <- fmap head getArgs
     inputs <- readFile inputFile
     let passphrases = fmap (splitOn " ") $ splitOn "\n" inputs
-    putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 passphrases
-    putStrLn $ show $ foldl (\r l -> if (length l) == (Set.size $ Set.fromList l) then r+1 else r) 0 $ fmap (fmap Lst.sort) passphrases
+    let allElementsUnique l = (length l) == (Set.size $ Set.fromList l)
+    print $ length $ filter allElementsUnique passphrases
+    print $ length $ filter allElementsUnique $ fmap (fmap Lst.sort) passphrases
 
 applyN n f = foldr (.) id (replicate n f)
 
@@ -111,7 +112,7 @@ processAndCount :: (Zipper Int -> Zipper Int) -> Zipper Int -> Int
 processAndCount rule zipper = processAndCount' 0 zipper
     where
         processAndCount' n (Zip _ []) = n
-        processAndCount' n zipper = processAndCount' (n+1) $ rule zipper
+        processAndCount' n zipper     = processAndCount' (n+1) $ rule zipper
 
 rule1 (Zip ls (r : rs)) =
     if r < 0 then
@@ -132,8 +133,8 @@ advent5 = do
     inputFile <- fmap head getArgs
     input <- readFile inputFile
     let tape = Zp.fromList $ fmap read $ splitOn "\n" input
-    putStrLn $ show $ processAndCount rule1 tape
-    putStrLn $ show $ processAndCount rule2 tape
+    print $ processAndCount rule1 tape
+    print $ processAndCount rule2 tape
 
 distributeOnce :: Seq Int -> Seq Int
 distributeOnce seq = distribute max (maxId + 1) $ Seq.update maxId 0 seq
@@ -154,10 +155,10 @@ distributeAndLoop input = distributeAndLoop' 0 Set.empty $ Seq.fromList input
 
 advent6 :: IO ()
 advent6 = do
-    let input = [10, 3, 15, 10, 5, 15, 5, 15, 9, 2, 5, 8, 5, 2, 3, 6] -- [0,2,7,0]
+    let input = [10, 3, 15, 10, 5, 15, 5, 15, 9, 2, 5, 8, 5, 2, 3, 6]
     let (loopStart, cycleCount) = distributeAndLoop input
-    putStrLn $ show cycleCount
-    putStrLn $ show $ snd $ distributeAndLoop loopStart
+    print cycleCount
+    print $ snd $ distributeAndLoop loopStart
 
 treeName = fst . Tree.rootLabel
 
@@ -239,8 +240,8 @@ advent7 = do
     let index = Map.fromList $ fmap ((pairWith treeName) . treeFromLine) lines
     let mBadWeight = badWeight index $ index Map.! root
     let mCorrectWeight = fmap (\(selfWeight, fullWeight, correctFullWeight) -> selfWeight + correctFullWeight - fullWeight) mBadWeight
-    putStrLn $ show mBadWeight
-    putStrLn $ show mCorrectWeight
+    print mBadWeight
+    print mCorrectWeight
 
 data Op = Inc | Dec
 applyOp Inc = (+)
@@ -251,8 +252,8 @@ testFromString "!=" = (/=)
 testFromString "==" = (==)
 testFromString "<=" = (<=)
 testFromString ">=" = (>=)
-testFromString "<" = (<)
-testFromString ">" = (>)
+testFromString "<"  = (<)
+testFromString ">"  = (>)
 
 parseInstruction :: String -> (String, Op, Int, (Map String Int -> Bool))
 parseInstruction line = (register, op, val, condition)
@@ -284,8 +285,8 @@ advent8 = do
     inputs <- fmap head getArgs >>= readFile
     let lines = splitOn "\n" inputs
     let (registers, grandMax) = foldl readInstruction (Map.empty, 0) lines
-    putStrLn $ show $ maximum $ Map.elems registers
-    putStrLn $ show grandMax
+    print $ maximum $ Map.elems registers
+    print grandMax
 
 data StreamState = Block | Garbage
 
@@ -305,7 +306,7 @@ processStream = processStream' 0 0 0 False Block
 advent9 :: IO ()
 advent9 = do
     stream <- fmap head getArgs >>= readFile
-    putStrLn $ show $ processStream stream
+    print $ processStream stream
 
 morphism :: Int -> (Int, Int) -> (Int -> Int)
 morphism _ (0, _) = id
@@ -355,10 +356,10 @@ advent10 = do
 
 tokenToCoords :: String -> (Int, Int, Int)
 tokenToCoords "se" = (1,-1,0)
-tokenToCoords "n" = (0,1,-1)
+tokenToCoords "n"  = (0,1,-1)
 tokenToCoords "sw" = (-1,0,1)
 tokenToCoords "nw" = (-1,1,0)
-tokenToCoords "s" = (0,-1,1)
+tokenToCoords "s"  = (0,-1,1)
 tokenToCoords "ne" = (1,0,-1)
 
 dist :: (Int, Int, Int) -> Int
