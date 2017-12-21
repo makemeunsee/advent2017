@@ -34,6 +34,7 @@ executable advent2017-exe
                      , ListZipper
                      , text
                      , regex-compat-tdfa
+                     , lens
   default-language:    Haskell2010
 
 test-suite advent2017-test
