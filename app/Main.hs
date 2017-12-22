@@ -1,8 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 
-module Main
-  ( main
-  ) where
+module Main where
 
 import Control.Applicative ((<$>))
 import Control.Lens
@@ -42,8 +40,9 @@ matchesNext [] = []
 matchesNext (x:xs) = matchesNext' x (x : xs)
   where
     matchesNext' :: Eq a => a -> [a] -> [Bool]
-    matchesNext' h [x] = [h == x]
-    matchesNext' h (x:x':xs) = (x == x') : matchesNext' h (x' : xs)
+    matchesNext' h [n] = [h == n]
+    matchesNext' h (n:n':ns) = (n == n') : matchesNext' h (n' : ns)
+    matchesNext' _ _ = error "unsupported"
 
 halfwayAround :: [a] -> [a]
 halfwayAround [] = []
@@ -130,12 +129,14 @@ rule1 (Zip ls (r:rs)) =
   if r < 0
     then applyN (-r) Zp.left $ Zip ls (r + 1 : rs)
     else applyN r Zp.right $ Zip ls (r + 1 : rs)
+rule1 _ = error "unsupported"
 
 rule2 :: Zipper Int -> Zipper Int
 rule2 (Zip ls (r:rs))
   | r < 0 = applyN (-r) Zp.left $ Zip ls (r + 1 : rs)
   | r < 3 = applyN r Zp.right $ Zip ls (r + 1 : rs)
   | otherwise = applyN r Zp.right $ Zip ls (r - 1 : rs)
+rule2 _ = error "unsupported"
 
 advent5 :: IO ()
 advent5 = do
@@ -157,10 +158,9 @@ distributeOnce sq = distribute mx (maxId + 1) $ Seq.update maxId 0 sq
              else curMax)
         (Seq.index sq 0, 0)
         sq
-    distribute 0 _ sq = sq
-    distribute toDistribute atId sq =
-      distribute (toDistribute - 1) (atId + 1) $
-      Seq.adjust (+ 1) (atId `mod` l) sq
+    distribute 0 _ = id
+    distribute toDistribute atId =
+      distribute (toDistribute - 1) (atId + 1) . Seq.adjust (+ 1) (atId `mod` l)
 
 distributeAndLoop :: [Int] -> ([Int], Int)
 distributeAndLoop input = distributeAndLoop' 0 Set.empty $ Seq.fromList input
@@ -226,30 +226,31 @@ uglyDuckling (x:y:z:r) (bx:by:bz:br)
   | x == y = Just (bz, z, x)
   | y == z = Just (bx, x, y)
   | otherwise = Just (by, y, x)
+uglyDuckling _ _ = error "unsupported"
 
 badWeight ::
      Map String (Tree (String, Int))
   -> Tree (String, Int)
   -> Maybe (Int, Int, Int)
 badWeight _ (Node _ []) = Nothing
-badWeight index (Node _ kids) =
+badWeight nodes (Node _ kids) =
   if Mbe.isJust mBadKid
     then mBadKid
     else mBadWeight
   where
     mBadWeight =
       uglyDuckling kidsWeights $ fmap (snd . Tree.rootLabel) kidsWithKids
-    kidsWeights = fmap (fullWeight index) kidsWithKids
+    kidsWeights = fmap (fullWeight nodes) kidsWithKids
     mBadKid =
-      (Mbe.listToMaybe . Mbe.catMaybes) $ fmap (badWeight index) kidsWithKids
-    kidsWithKids = fmap ((index Map.!) . treeName) kids
+      (Mbe.listToMaybe . Mbe.catMaybes) $ fmap (badWeight nodes) kidsWithKids
+    kidsWithKids = fmap ((nodes Map.!) . treeName) kids
 
 fullWeight :: Map String (Tree (String, Int)) -> Tree (String, Int) -> Int
 fullWeight _ (Node (_, w) []) = w
-fullWeight index (Node (_, w) kids) =
-  sum $ w : fmap (fullWeight index) kidsWithKids
+fullWeight nodes (Node (_, w) kids) =
+  sum $ w : fmap (fullWeight nodes) kidsWithKids
   where
-    kidsWithKids = fmap ((index Map.!) . treeName) kids
+    kidsWithKids = fmap ((nodes Map.!) . treeName) kids
 
 advent7 :: IO ()
 advent7 = do
@@ -257,8 +258,8 @@ advent7 = do
   let inputs = lines input
   let root = "hmvwl" -- from ctrl-f'ing in input file
   putStrLn root
-  let index = Map.fromList $ fmap (pairWith treeName . treeFromLine) inputs
-  let mBadWeight = badWeight index $ index Map.! root
+  let nodes = Map.fromList $ fmap (pairWith treeName . treeFromLine) inputs
+  let mBadWeight = badWeight nodes $ nodes Map.! root
   let mCorrectWeight =
         fmap
           (\(self, full, correctFull) -> self + correctFull - full)
@@ -277,6 +278,7 @@ applyOp Dec = (-)
 opFromString :: String -> Op
 opFromString "inc" = Inc
 opFromString "dec" = Dec
+opFromString str = error $ "Bad input: " ++ str
 
 testFromString :: Ord a => String -> a -> a -> Bool
 testFromString "!=" = (/=)
@@ -285,13 +287,14 @@ testFromString "<=" = (<=)
 testFromString ">=" = (>=)
 testFromString "<" = (<)
 testFromString ">" = (>)
+testFromString str = error $ "Bad input: " ++ str
 
 parseInstruction :: String -> (String, Op, Int, Map String Int -> Bool)
-parseInstruction line = (register, op, val, condition)
+parseInstruction line = (register, operation, val, condition)
   where
     matches = Mbe.fromJust $ matchRegex instructionRegex line
     register = head matches
-    op = opFromString $ matches !! 1
+    operation = opFromString $ matches !! 1
     val = read $ matches !! 2
     conditionRegister = matches !! 3
     conditionOp = testFromString $ matches !! 4
@@ -310,8 +313,8 @@ readInstruction :: (Map String Int, Int) -> String -> (Map String Int, Int)
 readInstruction (registers, currentMax) line =
   readInstruction' $ parseInstruction line
   where
-    readInstruction' (register, op, val, condition) =
-      let newVal = applyOp op 0 val
+    readInstruction' (register, operation, val, condition) =
+      let newVal = applyOp operation 0 val
       in let newRegisters = Map.insertWith (+) register newVal registers
          in if condition registers
               then (newRegisters, max currentMax $ newRegisters Map.! register)
@@ -415,6 +418,7 @@ tokenToCoords "sw" = (-1, 0, 1)
 tokenToCoords "nw" = (-1, 1, 0)
 tokenToCoords "s" = (0, -1, 1)
 tokenToCoords "ne" = (1, 0, -1)
+tokenToCoords str = error $ "Bad input: " ++ str
 
 dist :: (Int, Int, Int) -> Int
 dist (x, y, z) = (abs x + abs y + abs z) `div` 2
@@ -458,7 +462,7 @@ group' relations (s:ss) checked acc
     newToCheck = newRelations Set.\\ checked
 
 group :: Map String (Set String) -> String -> Set String
-group relations element = group' relations [element] Set.empty Set.empty
+group relations e = group' relations [e] Set.empty Set.empty
 
 relationGroups :: Map String (Set String) -> Set String -> Set (Set String)
 relationGroups relations keysToCheck =
@@ -470,11 +474,11 @@ groups groupFct candidates acc
   | otherwise =
     groups
       groupFct
-      (candidates Set.\\ newGroup Set.\\ Set.singleton element)
+      (candidates Set.\\ newGroup Set.\\ Set.singleton e0)
       (Set.insert newGroup acc)
   where
-    newGroup = groupFct element
-    element = Set.elemAt 0 candidates
+    newGroup = groupFct e0
+    e0 = Set.elemAt 0 candidates
 
 advent12 :: IO ()
 advent12 = do
@@ -514,15 +518,18 @@ fragGroup ::
 fragGroup = fragGroup' Set.empty
   where
     fragGroup' acc binMap checked p@(x, y)
-      | Mbe.isNothing (Map.lookup p binMap) = (acc, Set.insert p checked)
-      | Map.lookup p binMap == Just '0' = (acc, Set.insert p checked)
-      | Map.lookup p binMap == Just '1' =
+      | Mbe.isNothing value = (acc, Set.insert p checked)
+      | value == Just '0' = (acc, Set.insert p checked)
+      | value == Just '1' =
         let neighbours = [(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)]
         in let filteredNeighbours = filter (`Set.notMember` checked) neighbours
            in foldr
                 (\p' (acc', checked') -> fragGroup' acc' binMap checked' p')
                 (Set.insert p acc, Set.insert p checked)
                 filteredNeighbours
+      | otherwise = error $ "unexpected value: " ++ show value
+      where
+        value = Map.lookup p binMap
 
 betterGroups :: Ord a => (Set a -> a -> (Set a, Set a)) -> Set a -> Set (Set a)
 betterGroups = betterGroups' Set.empty Set.empty
@@ -531,8 +538,8 @@ betterGroups = betterGroups' Set.empty Set.empty
       | Set.null elementsToCheck = acc
       | otherwise = betterGroups' checked' acc' groupFct toCheck'
       where
-        element = Set.elemAt 0 elementsToCheck
-        (newGroup, checked') = groupFct elementsChecked element
+        e0 = Set.elemAt 0 elementsToCheck
+        (newGroup, checked') = groupFct elementsChecked e0
         toCheck' = elementsToCheck Set.\\ checked'
         acc' = Set.insert newGroup acc
 
@@ -587,9 +594,10 @@ applyMove programs ('x':r) = Seq.update id1 p2 $ Seq.update id2 p1 programs
   where
     p1 = Seq.index programs id1
     p2 = Seq.index programs id2
-    id1 = read $ head parts
-    id2 = read $ head $ tail parts
-    parts = splitOn "/" r
+    id1 = read $ head pts
+    id2 = read $ head $ tail pts
+    pts = splitOn "/" r
+applyMove _ str = error $ "bad move: " ++ str
 
 countUntil :: (a -> Bool) -> [a] -> Int
 countUntil stopCondition as = length $ takeWhile (not . stopCondition) as
@@ -638,80 +646,113 @@ rcvRegister = 'r'
 sndRegister :: Char
 sndRegister = 's'
 
+selfRegister :: Char
+selfRegister = 'p'
+
 data ProgramState
   = Running
-  | Waiting
+  | Waiting Char
   | Terminated
+  deriving (Show, Eq)
 
 data Program = Program
   { _registers :: Map Char Int
   , _code :: Zipper String
   , _state :: ProgramState
-  }
+  , _sending :: [Int]
+  , _sent :: Int
+  } deriving (Show)
 
 makeLenses ''Program
 
 processInstr :: Program -> Program
-processInstr p@Program {_state = Waiting} = p
-processInstr p@Program {_state = Terminated} = p
-processInstr p@Program { _registers = rs
-                       , _code = z@(Zip _ (instr:_))
-                       , _state = Running
-                       } = processInstr' $ splitOn " " instr
+processInstr p@Program {_registers = regs, _code = z@(Zip ls (instr:rs))} =
+  processInstr' $ splitOn " " instr
   where
-    get r =
-      if Chr.isAlpha r
-        then Mbe.fromMaybe 0 $ Map.lookup r rs
-        else Chr.digitToInt r
-    ins r v = Map.insert r v rs
-    stepped = Zp.right z
+    get r
+      | Chr.isAlpha r = Mbe.fromMaybe 0 $ Map.lookup r regs
+      | otherwise = Chr.digitToInt r
+    ins r v = Map.insert r v regs
+    step n
+      | n > 0 && length rs >= n = p & code .~ applyN n Zp.right z
+      | n > 0 = p & state .~ Terminated
+      | n < 0 && length ls >= nn = p & code .~ applyN nn Zp.left z
+      | n < 0 = p & state .~ Terminated
+      | otherwise = p
+      where
+        nn = negate n
     processInstr' ["snd", [r]] =
-      (p & registers .~ ins sndRegister (get r)) & code .~ stepped
-    processInstr' ["set", [r], [f]] =
-      (p & registers .~ ins r (get f)) & code .~ stepped
-    processInstr' ["set", [r], val] =
-      (p & registers .~ ins r (read val)) & code .~ stepped
+      step 1 & registers .~ ins sndRegister (get r) & sending %~ (:) (get r) &
+      sent %~
+      (+ 1)
+    processInstr' ["set", [r], [f]] = step 1 & registers .~ ins r (get f)
+    processInstr' ["set", [r], val] = step 1 & registers .~ ins r (read val)
     processInstr' ["add", [r], [f]] =
-      (p & registers .~ ins r (get r + get f)) & code .~ stepped
+      step 1 & registers .~ ins r (get r + get f)
     processInstr' ["add", [r], val] =
-      (p & registers .~ ins r (get r + read val)) & code .~ stepped
+      step 1 & registers .~ ins r (get r + read val)
     processInstr' ["mul", [r], [f]] =
-      (p & registers .~ ins r (get r * get (traceShowId f))) & code .~ stepped
+      step 1 & registers .~ ins r (get r * get f)
     processInstr' ["mul", [r], val] =
-      (p & registers .~ ins r (get r * read val)) & code .~ stepped
+      step 1 & registers .~ ins r (get r * read val)
     processInstr' ["mod", [r], [f]] =
-      (p & registers .~ ins r (get r `mod` get f)) & code .~ stepped
+      step 1 & registers .~ ins r (get r `mod` get f)
     processInstr' ["mod", [r], val] =
-      (p & registers .~ ins r (get r `mod` read val)) & code .~ stepped
-    processInstr' ["rcv", [_]] =
-      (p & registers .~ ins rcvRegister (get sndRegister)) & code .~ stepped
+      step 1 & registers .~ ins r (get r `mod` read val)
+    processInstr' ["rcv", [r]] =
+      step 1 & registers .~ ins rcvRegister (get sndRegister) & state .~
+      Waiting r
     processInstr' ["jgz", [r], [f]] =
       if get r > 0
-        then if get f > 0
-               then p & code .~ applyN (get f) Zp.right z
-               else p & code .~ applyN (abs $ get f) Zp.left z
-        else p & code .~ stepped
+        then step (get f)
+        else step 1
     processInstr' ["jgz", [r], val] =
       if get r > 0
-        then if read val > 0
-               then p & code .~ applyN (read val) Zp.right z
-               else p & code .~ applyN (abs $ read val) Zp.left z
-        else p & code .~ stepped
+        then step (read val)
+        else step 1
+    processInstr' str = error $ foldl (++) "unknown instruction: " str
+processInstr p = error $ "Bad program state, cant process: " ++ show p
+
+run2Programs :: (Program, Program) -> (Program, Program)
+run2Programs (p0@Program {_sending = n:ns}, p1@Program {_state = Waiting r}) =
+  ( p0 & sending .~ take (length ns) (n : ns)
+  , p1 & state .~ Running & registers %~ Map.insert r (last (n : ns)))
+run2Programs (p0@Program {_state = Waiting r}, p1@Program {_sending = n:ns}) =
+  ( p0 & state .~ Running & registers %~ Map.insert r (last (n : ns))
+  , p1 & sending .~ take (length ns) (n : ns))
+run2Programs (p0@Program {_state = Running}, p1) = (processInstr p0, p1)
+run2Programs (p0, p1@Program {_state = Running}) = (p0, processInstr p1)
+run2Programs (p0@Program {_state = Waiting _}, p1@Program {_state = Waiting _}) =
+  (p0 & state .~ Terminated, p1 & state .~ Terminated)
+run2Programs (p0@Program {_state = Waiting _}, p1) =
+  (p0 & state .~ Terminated, p1 & state .~ Terminated)
+run2Programs (p0, p1@Program {_state = Waiting _}) =
+  (p0 & state .~ Terminated, p1 & state .~ Terminated)
+run2Programs ps = error $ "cant run " ++ show ps
 
 advent18 :: IO ()
 advent18 = do
   input <- fmap head getArgs >>= readFile
   let instructions = Zp.fromList $ lines input
-  let rs = Map.singleton rcvRegister 0
-  let program = iterate processInstr $ Program rs instructions Running
+  let regs = Map.singleton rcvRegister 0
+  let program = Program regs instructions Running [] 0
+  let runProgram = iterate processInstr program
   let firstRcvState =
         head $
-        dropWhile
-          (\p ->
-             traceShow (p ^. registers) $
-             (p ^. registers) Map.! rcvRegister == 0)
-          program
+        dropWhile (\p -> (p ^. registers) Map.! rcvRegister == 0) runProgram
   print $ (firstRcvState ^. registers) Map.! rcvRegister
+  let runPrograms =
+        iterate
+          run2Programs
+          ( program & registers %~ Map.insert selfRegister 0
+          , program & registers %~ Map.insert selfRegister 1)
+  print $
+    flip (^.) sent $
+    snd $
+    head $
+    dropWhile
+      (\(p0, p1) -> p0 ^. state /= Terminated || p1 ^. state /= Terminated)
+      runPrograms
 
 main :: IO ()
 main = advent18
